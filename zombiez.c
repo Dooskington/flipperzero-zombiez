@@ -3,6 +3,14 @@
 #include <input/input.h>
 #include <stdlib.h>
 
+#define ZOMBIES_MAX 3
+#define PROJECTILES_MAX 10
+#define PLAYER_MIN_Y 5
+#define PLAYER_MAX_Y 58
+#define PLAYER_START_X 8
+#define PLAYER_START_Y (PLAYER_MAX_Y - PLAYER_MIN_Y) / 2
+#define WALL_X 16
+
 typedef enum {
     EventTypeTick,
     EventTypeKey,
@@ -16,6 +24,29 @@ typedef struct {
 typedef struct {
     int x;
     int y;
+} Point;
+
+typedef struct { 
+    Point position;
+    int hp;
+} Player; 
+
+typedef struct { 
+    Point position;
+    int hp;
+} Zombie; 
+
+typedef struct { 
+    Point position;
+} Projectile; 
+
+typedef struct {
+    int x;
+    int y;
+
+    Player player;
+    Zombie zombies[ZOMBIES_MAX];
+    Projectile projectiles[PROJECTILES_MAX];
 } PluginState; 
 
 static void render_callback(Canvas* const canvas, void* ctx) {
@@ -27,7 +58,20 @@ static void render_callback(Canvas* const canvas, void* ctx) {
     canvas_draw_frame(canvas, 0, 0, 128, 64);
 
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str_aligned(canvas, plugin_state->x, plugin_state->y, AlignRight, AlignBottom, "@");
+
+    canvas_draw_str_aligned(canvas, plugin_state->x, plugin_state->y, AlignCenter, AlignCenter, "@");
+
+    //canvas_draw_circle(canvas, 64, 20, 8);
+
+    //canvas_draw_dot(canvas, 85, 15);
+
+    canvas_draw_line(canvas, WALL_X, 2, WALL_X, 126);
+    canvas_draw_line(canvas, WALL_X + 2, 4, WALL_X + 2, 124);
+
+    char* info = (char*)malloc(16 * sizeof(char));
+    asprintf(&info, "%d, %d", plugin_state->x, plugin_state->y);
+    canvas_draw_str_aligned(canvas, 32, 16, AlignLeft, AlignBottom, info);
+    free(info);
 
     release_mutex((ValueMutex*)ctx, plugin_state);
 }
@@ -40,7 +84,8 @@ static void input_callback(InputEvent* input_event, osMessageQueueId_t event_que
 }
 
 static void hello_world_state_init(PluginState* const plugin_state) {
-
+    plugin_state->x = PLAYER_START_X;
+    plugin_state->y = PLAYER_START_Y;
 } 
 
 int32_t zombiez_app(void* p) { 
@@ -48,6 +93,7 @@ int32_t zombiez_app(void* p) {
     
     PluginState* plugin_state = malloc(sizeof(PluginState));
     hello_world_state_init(plugin_state);
+
     ValueMutex state_mutex; 
     if (!init_mutex(&state_mutex, plugin_state, sizeof(PluginState))) {
         FURI_LOG_E("zombiez", "Failed to init plugin state mutex");
@@ -79,15 +125,25 @@ int32_t zombiez_app(void* p) {
                     case InputKeyDown: 
                             plugin_state->y++;
                         break; 
-                    case InputKeyRight: 
-                            plugin_state->x++;
-                        break; 
-                    case InputKeyLeft:
-                            plugin_state->x--;
-                        break; 
                     case InputKeyOk: 
+                        // todo shoot
+                        break;
                     case InputKeyBack: 
                         processing = false;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                else if(event.input.type == InputTypeRepeat) {  
+                    switch(event.input.key) {
+                    case InputKeyUp: 
+                            plugin_state->y -= 2;
+                        break; 
+                    case InputKeyDown: 
+                            plugin_state->y += 2;
+                        break; 
+                    default:
                         break;
                     }
                 }
